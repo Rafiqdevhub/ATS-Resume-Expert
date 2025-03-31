@@ -1,41 +1,24 @@
 from dotenv import load_dotenv
-import base64
 import streamlit as st
 import os
-import io
-from PIL import Image 
-import pdf2image
+import PyPDF2 as pdf
 import google.generativeai as genai
 
 load_dotenv()
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
-def get_gemini_response(input,pdf_cotent,prompt):
-    model=genai.GenerativeModel('gemini-2.0-flash')
-    response=model.generate_content([input,pdf_content[0],prompt])
+def get_gemini_response(input_text, resume_text, prompt):
+    model = genai.GenerativeModel('gemini-2.0-flash')
+    response = model.generate_content([input_text, resume_text, prompt])
     return response.text
 
-def input_pdf_setup(uploaded_file): 
-    if uploaded_file is not None:
-        ## Convert the PDF to image
-        images=pdf2image.convert_from_bytes(uploaded_file.read())
-
-        first_page=images[0]
-
-        # Convert to bytes
-        img_byte_arr = io.BytesIO()
-        first_page.save(img_byte_arr, format='JPEG')
-        img_byte_arr = img_byte_arr.getvalue()
-
-        pdf_parts = [
-            {
-                "mime_type": "image/jpeg",
-                "data": base64.b64encode(img_byte_arr).decode()  
-            }
-        ]
-        return pdf_parts
-    else:
-        raise FileNotFoundError("No file uploaded")
+def input_pdf_text(uploaded_file):
+    reader = pdf.PdfReader(uploaded_file)
+    text = ""
+    for page in range(len(reader.pages)):
+        page = reader.pages[page]
+        text += str(page.extract_text())
+    return text
 
 st.set_page_config(
     page_title="ATS Resume Expert",
@@ -82,7 +65,7 @@ with col2:
     
     if uploaded_file is not None:
         st.success("✅ Resume uploaded successfully!")
-    
+
 st.markdown("---")
 st.subheader("Analysis Options")
 
@@ -148,15 +131,15 @@ if submit1 or submit2 or submit3 or submit4:
     else:
         try:
             with st.spinner("Analyzing your resume..."):
-                pdf_content = input_pdf_setup(uploaded_file)
+                resume_text = input_pdf_text(uploaded_file)
                 if submit1:
-                    response = get_gemini_response(input_prompt1, pdf_content, input_text)
+                    response = get_gemini_response(input_prompt1, resume_text, input_text)
                 elif submit2:
-                    response = get_gemini_response(input_prompt2, pdf_content, input_text)
+                    response = get_gemini_response(input_prompt2, resume_text, input_text)
                 elif submit3:
-                    response = get_gemini_response(input_prompt3, pdf_content, input_text)
+                    response = get_gemini_response(input_prompt3, resume_text, input_text)
                 else:
-                    response = get_gemini_response(input_prompt4, pdf_content, input_text)
+                    response = get_gemini_response(input_prompt4, resume_text, input_text)
                 
                 st.markdown("### Analysis Results")
                 st.markdown("---")
